@@ -77,7 +77,7 @@ flowchart LR
 Prior to modern AI frameworks, integrating Large Language Models required wrestling with disparate vendor SDKs:
 - **OpenAI SDK**: Uses `chat.completions.create()`, expects JSON schemas under `tools[].function.parameters`, and returns chunks via async generators.
 - **Anthropic Claude SDK**: Uses `messages.create()`, handles system prompts as a separate top-level parameter, uses different streaming chunk structures, and formats tools differently.
-- **Google Gemini SDK**: Uses `generateContentStream()`, wraps tokens in `candidates[].content.parts[]`, and requires protobuf-style schema descriptors.
+- **Google Gemini APIs**: Native and OpenAI-compatible endpoints use different payload shapes and streaming event formats than OpenAI/Anthropic defaults.
 - **Ollama / Local LLMs**: Requires custom HTTP endpoints, non-standard streaming delimiters, and manual prompt templates.
 
 This fragmentation led to massive vendor lock-in. Switching models required rewriting API routes, parsers, and client UI consumers.
@@ -96,7 +96,7 @@ graph TD
     subgraph Providers["Interchangeable Model Providers"]
         P1["@ai-sdk/openai (GPT-4o, o1, o3-mini)"]
         P2["@ai-sdk/anthropic (Claude 3.5 Sonnet, Haiku)"]
-        P3["@ai-sdk/google (Gemini 1.5 Pro, Flash)"]
+        P3["@ai-sdk/google-compatible (Gemini 3.5 Flash-Lite, 3.8 Flash)"]
         P4["@ai-sdk/mistral (Mistral Large, Codestral)"]
         P5["@ai-sdk/groq (Llama 3.3 70B @ 300 tps)"]
         P6["ollama-ai-provider (Local Llama 3, DeepSeek-R1)"]
@@ -112,7 +112,7 @@ graph TD
     StandardSpec <==> P6
 ```
 
-With the Vercel AI SDK, switching your entire enterprise infrastructure from **GPT-4o** to **Claude 3.5 Sonnet** or **Gemini 1.5 Pro** requires changing **exactly one line of code**:
+With the Vercel AI SDK, switching your entire enterprise infrastructure from **GPT-4o** to **Claude 3.5 Sonnet** or **Gemini 3.8 Flash** requires changing **exactly one line of code**:
 
 ```typescript
 // From this:
@@ -122,7 +122,7 @@ const result = await streamText({ model: openai('gpt-4o'), prompt });
 const result = await streamText({ model: anthropic('claude-3-5-sonnet-20241022'), prompt });
 
 // Or this:
-const result = await streamText({ model: google('gemini-1.5-pro-latest'), prompt });
+const result = await streamText({ model: google('gemini-3.5-flash-lite'), prompt });
 ```
 
 ---
@@ -137,7 +137,7 @@ The Vercel AI SDK is organized into modular packages to ensure minimal bundle si
 | **`@ai-sdk/provider`** | Low-level interfaces for building custom model providers and streaming adapters. | Universal |
 | **`@ai-sdk/openai`** | Official OpenAI provider (models, embeddings, audio, moderation). | Server-side |
 | **`@ai-sdk/anthropic`** | Official Anthropic Claude provider with prompt caching support. | Server-side |
-| **`@ai-sdk/google`** | Official Google Gemini provider (multimodal, 2M context window). | Server-side |
+| **`@ai-sdk/google-compatible`** | Google Gemini via OpenAI-compatible interface (pricing and availability vary by selected Gemini model and account tier). | Server-side |
 | **`@ai-sdk/react`** | Client UI hooks: `useChat`, `useCompletion`, `useObject`. | React / Next.js Client |
 | **`@ai-sdk/vue`** | Vue 3 composition API hooks for chat and completion streaming. | Vue Client |
 | **`@ai-sdk/svelte`** | Svelte 5 runes and stores for streaming UI. | Svelte Client |
@@ -153,7 +153,7 @@ Install the core package alongside the providers you plan to utilize:
 npm install ai @ai-sdk/react zod
 
 # Model providers
-npm install @ai-sdk/openai @ai-sdk/anthropic @ai-sdk/google @ai-sdk/mistral @ai-sdk/groq
+npm install @ai-sdk/openai @ai-sdk/anthropic @ai-sdk/google-compatible @ai-sdk/mistral @ai-sdk/groq
 ```
 
 #### Configuring Environment Variables (`.env.local`)
@@ -178,7 +178,7 @@ The AI SDK includes `createProviderRegistry()` for dynamic multi-provider routin
 import { createProviderRegistry } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
-import { google } from '@ai-sdk/google';
+import { google } from '@ai-sdk/google-compatible';
 
 // 1. Create a centralized provider registry
 export const registry = createProviderRegistry({
@@ -195,7 +195,7 @@ export function getModelForTask(tier: 'fast' | 'reasoning' | 'creative') {
     case 'reasoning':
       return registry.languageModel('anthropic:claude-3-5-sonnet-20241022');
     case 'creative':
-      return registry.languageModel('google:gemini-1.5-pro-latest');
+      return registry.languageModel('google:gemini-3.8-flash');
   }
 }
 ```
